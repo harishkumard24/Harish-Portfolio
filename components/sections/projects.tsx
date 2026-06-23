@@ -1,7 +1,7 @@
 /* Auto-rotating featured projects carousel with a transparent premium shell. */
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import { projects } from "@/lib/site-data";
 
 export function ProjectsSection() {
@@ -9,9 +9,11 @@ export function ProjectsSection() {
   const [active, setActive] = useState(0);
   const shellRef = useRef<HTMLDivElement>(null);
 
-  // Re-arms every time `active` changes — including from a manual
-  // prev/next click — so clicking effectively resets the auto-advance
-  // countdown instead of fighting a fixed-schedule interval.
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const touchEndX = useRef(0);
+  const touchEndY = useRef(0);
+
   useEffect(() => {
     const id = window.setTimeout(() => {
       setActive((value) => (value + 1) % items.length);
@@ -31,22 +33,53 @@ export function ProjectsSection() {
     return value;
   };
 
+  const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    touchEndX.current = touchStartX.current;
+    touchEndY.current = touchStartY.current;
+  };
+
+  const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => {
+    touchEndX.current = e.touches[0].clientX;
+    touchEndY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = () => {
+    const dx = touchStartX.current - touchEndX.current;
+    const dy = touchStartY.current - touchEndY.current;
+
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+
+    if (absX > 40 && absX > absY) {
+      if (dx > 0) {
+        next();
+      } else {
+        prev();
+      }
+    }
+  };
+
   return (
-    <section id="projects" className="py-24 sm:py-28">
-      <div className="mb-10 space-y-3">
+    <section id="projects" className="py-20 sm:py-24 lg:py-28">
+      <div className="mb-8 space-y-3 sm:mb-10">
         <p className="text-[11px] uppercase tracking-[0.38em] text-white/45">Technical Projects</p>
-        <h2 className="max-w-4xl bg-gradient-to-r from-sky-400 to-white bg-clip-text font-serif font-bold not-italic text-4xl tracking-tight text-transparent sm:text-5xl lg:text-6xl">
+        <h2 className="max-w-4xl bg-gradient-to-r from-sky-400 to-white bg-clip-text font-serif font-bold not-italic text-3xl tracking-tight text-transparent sm:text-5xl lg:text-6xl">
           Products I’ve built.
         </h2>
-        <p className="max-w-3xl text-base leading-8 not-italic text-white/65 sm:text-lg">
+        <p className="max-w-3xl text-sm leading-7 text-white/65 sm:text-base sm:leading-8 lg:text-lg">
           A centered carousel with one active card in front, two readable side cards on each side, and a soft circular frame in the background.
         </p>
       </div>
 
       <div
         ref={shellRef}
-        className="relative overflow-hidden rounded-[34px] border border-white/8 bg-white/[0.015] px-2 py-10 shadow-[0_24px_80px_rgba(0,0,0,0.38)] backdrop-blur-xl sm:px-8 lg:px-12"
-        style={{ perspective: "2200px" }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="relative overflow-hidden rounded-[34px] border border-white/8 bg-white/[0.015] px-3 py-8 shadow-[0_24px_80px_rgba(0,0,0,0.38)] backdrop-blur-xl sm:px-6 lg:px-12"
+        style={{ perspective: "2200px", touchAction: "pan-y" }}
       >
         <div className="pointer-events-none absolute inset-[10%_14%] rounded-full border border-white/5" />
         <div className="pointer-events-none absolute inset-[18%_22%] rounded-full border border-dashed border-white/5" />
@@ -54,7 +87,7 @@ export function ProjectsSection() {
         <button
           type="button"
           onClick={prev}
-          className="absolute left-2 top-1/2 z-20 -translate-y-1/2 text-5xl font-light text-white/55 transition hover:text-sky-400 sm:left-3 sm:text-6xl"
+          className="absolute left-1 top-1/2 z-20 -translate-y-1/2 text-4xl font-light text-white/55 transition hover:text-sky-400 sm:left-3 sm:text-6xl"
           aria-label="Previous project"
         >
           &lt;
@@ -62,44 +95,37 @@ export function ProjectsSection() {
         <button
           type="button"
           onClick={next}
-          className="absolute right-2 top-1/2 z-20 -translate-y-1/2 text-5xl font-light text-white/55 transition hover:text-sky-400 sm:right-3 sm:text-6xl"
+          className="absolute right-1 top-1/2 z-20 -translate-y-1/2 text-4xl font-light text-white/55 transition hover:text-sky-400 sm:right-3 sm:text-6xl"
           aria-label="Next project"
         >
           &gt;
         </button>
 
-        <div className="relative h-[265px] sm:h-[380px]">
+        <div className="relative h-[340px] sm:h-[420px] md:h-[460px] lg:h-[500px]">
           {items.map((item, index) => {
             const offset = normalize(index - active);
             const abs = Math.abs(offset);
             const isCenter = offset === 0;
-            // Now keep three tiers visible per side: center (0), near (1), far (2).
             const isVisible = abs <= 2;
 
             const shellWidth = Math.max(320, shellRef.current?.getBoundingClientRect().width || 1200);
             const isSmall = shellWidth <= 720;
             const isTablet = shellWidth <= 1120;
 
-            // Near (offset 1) and far (offset 2) get their own x/z steps instead
-            // of far reusing one big jump — this is what actually produces two
-            // distinct, evenly-spaced side cards per direction.
             const nearOffset = isSmall ? Math.round(shellWidth * 0.34) : isTablet ? Math.round(shellWidth * 0.27) : 260;
             const farOffset = isSmall ? Math.round(shellWidth * 0.58) : isTablet ? Math.round(shellWidth * 0.46) : 460;
 
             const x = isCenter ? 0 : abs === 1 ? nearOffset * Math.sign(offset) : farOffset * Math.sign(offset);
             const z = isCenter ? (isSmall ? 240 : 280) : abs === 1 ? (isSmall ? 130 : 150) : isSmall ? 40 : 30;
             const scale = isCenter ? 1 : abs === 1 ? 0.86 : 0.72;
-
-            // Center stays fully opaque and dark as-is; near side card is
-            // clearly visible; far side card is the new dimmer tier.
             const opacity = isCenter ? 1 : abs === 1 ? 0.75 : 0.32;
-
             const zIndex = 100 - abs;
             const blur = isCenter ? 0 : abs === 1 ? 0 : 1.5;
+
             return (
               <article
                 key={`${item.title}-${index}`}
-                className="absolute left-1/2 top-1/2 w-[min(88vw,340px)] will-change-transform sm:w-[min(92vw,360px)]"
+                className="absolute left-1/2 top-1/2 w-[min(86vw,300px)] will-change-transform sm:w-[min(90vw,360px)] md:w-[min(40vw,420px)]"
                 style={{
                   zIndex,
                   opacity: isVisible ? opacity : 0,
@@ -119,11 +145,11 @@ export function ProjectsSection() {
                   }
                 >
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_34%)] opacity-80" />
-                  <div className="relative p-6">
+                  <div className="relative p-5 sm:p-6">
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="text-[11px] uppercase tracking-[0.25em] text-sky-300/80">{item.category}</div>
-                        <h3 className="mt-3 text-xl font-semibold text-white">{item.title}</h3>
+                        <h3 className="mt-3 text-lg font-semibold text-white sm:text-xl">{item.title}</h3>
                       </div>
                       {isCenter ? (
                         <div className="rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-sky-200">
@@ -146,7 +172,7 @@ export function ProjectsSection() {
                     </div>
                   </div>
 
-                  <div className="relative flex items-center justify-between border-t border-white/8 px-6 py-4 text-[11px] uppercase tracking-[0.22em] text-white/45">
+                  <div className="relative flex items-center justify-between border-t border-white/8 px-5 py-4 text-[11px] uppercase tracking-[0.22em] text-white/45 sm:px-6">
                     <span>{item.footerLeft}</span>
                     <span>{item.footerRight}</span>
                   </div>
