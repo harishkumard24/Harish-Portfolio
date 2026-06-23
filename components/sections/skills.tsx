@@ -9,7 +9,8 @@
  * the wrap reset kicks in. A third copy guarantees there's always a
  * full buffered set ahead of the visible window, so the wrap from
  * `cycleWidth` back to `0` lands on pixel-identical content and reads
- * as one continuous, gapless loop. */
+ * as one continuous, gapless loop.
+ */
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -72,11 +73,6 @@ export function SkillsSection() {
     }
   };
 
-  // cycleWidth = the distance from the start of copy 1 to the start of
-  // copy 2. Since copy 2 (and copy 3) are exact duplicates of copy 1,
-  // scrolling exactly this distance and wrapping back to 0 is visually
-  // seamless — the pixels at offset `cycleWidth` are identical to the
-  // pixels at offset `0`.
   const measureRow = (index: number) => {
     const firstCopy = firstCopyRefs.current[index];
     const secondCopy = secondCopyRefs.current[index];
@@ -106,8 +102,6 @@ export function SkillsSection() {
       observers.push(observer);
     });
 
-    // Re-measure once after fonts/layout settle, in case the first
-    // measurement happened before chip widths were final.
     const settleTimer = window.setTimeout(measureAll, 250);
 
     return () => {
@@ -248,29 +242,29 @@ export function SkillsSection() {
   }, []);
 
   return (
-    <section id="skills" className="py-24 sm:py-28">
-      <div className="mb-10 space-y-3">
+    <section id="skills" className="py-20 sm:py-24 lg:py-28">
+      <div className="mb-8 space-y-3 sm:mb-10">
         <p className="text-[11px] uppercase tracking-[0.38em] text-white/45">Skills</p>
-        <h2 className="max-w-4xl bg-gradient-to-r from-sky-400 to-white bg-clip-text font-serif font-bold not-italic text-4xl tracking-tight text-transparent sm:text-5xl lg:text-6xl">
+        <h2 className="max-w-4xl bg-gradient-to-r from-sky-400 to-white bg-clip-text font-serif font-bold not-italic text-3xl tracking-tight text-transparent sm:text-5xl lg:text-6xl">
           Technical Toolkit.
         </h2>
-        <p className="max-w-3xl text-base leading-8 text-white/65 sm:text-lg">
+        <p className="max-w-3xl text-sm leading-7 text-white/65 sm:text-base sm:leading-8 lg:text-lg">
           Technologies I use to build, ship, debug, and scale products — based on the strength of your resume.
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-[28px] border border-white/8 bg-white/[0.02] px-4 py-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:px-6">
+      <div className="overflow-hidden rounded-[28px] border border-white/8 bg-white/[0.02] px-3 py-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:px-6 sm:py-5">
         {rows.map((row, rowIndex) => {
           const isActive = activeRow === rowIndex;
 
           return (
-            <div key={row.category} className={rowIndex > 0 ? "mt-6" : ""}>
+            <div key={row.category} className={rowIndex > 0 ? "mt-5 sm:mt-6" : ""}>
               <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 z-[2] w-20 bg-gradient-to-r from-black via-black/70 to-transparent" />
-                <div className="pointer-events-none absolute inset-y-0 right-0 z-[2] w-20 bg-gradient-to-l from-black via-black/70 to-transparent" />
+                <div className="pointer-events-none absolute inset-y-0 left-0 z-[2] w-14 bg-gradient-to-r from-black via-black/70 to-transparent sm:w-20" />
+                <div className="pointer-events-none absolute inset-y-0 right-0 z-[2] w-14 bg-gradient-to-l from-black via-black/70 to-transparent sm:w-20" />
 
                 {isActive ? (
-                  <div className="pointer-events-none absolute inset-0 z-[3] flex items-center justify-between px-1">
+                  <div className="pointer-events-none absolute inset-0 z-[3] flex items-center justify-between px-0 sm:px-1">
                     <button
                       type="button"
                       data-skill-arrow
@@ -279,7 +273,7 @@ export function SkillsSection() {
                         activateRow(rowIndex, selectedSkill ?? row.items[0]);
                         nudgeRow(rowIndex)(-1);
                       }}
-                      className="pointer-events-auto text-4xl font-light leading-none text-white/75 transition hover:scale-110 hover:text-sky-400"
+                      className="pointer-events-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/35 text-3xl font-light leading-none text-white/75 transition hover:scale-110 hover:text-sky-400 sm:h-10 sm:w-10 sm:text-4xl"
                       aria-label={`Move ${row.category} left`}
                     >
                       &lt;
@@ -292,7 +286,7 @@ export function SkillsSection() {
                         activateRow(rowIndex, selectedSkill ?? row.items[0]);
                         nudgeRow(rowIndex)(1);
                       }}
-                      className="pointer-events-auto text-4xl font-light leading-none text-white/75 transition hover:scale-110 hover:text-sky-400"
+                      className="pointer-events-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/35 text-3xl font-light leading-none text-white/75 transition hover:scale-110 hover:text-sky-400 sm:h-10 sm:w-10 sm:text-4xl"
                       aria-label={`Move ${row.category} right`}
                     >
                       &gt;
@@ -314,7 +308,7 @@ export function SkillsSection() {
                     ref={(node) => {
                       trackRefs.current[rowIndex] = node;
                     }}
-                    className="flex w-max gap-3 will-change-transform"
+                    className="flex w-max gap-2.5 will-change-transform sm:gap-3"
                   >
                     {[0, 1, 2].map((copyIndex) => (
                       <div
@@ -323,7 +317,7 @@ export function SkillsSection() {
                           if (copyIndex === 0) firstCopyRefs.current[rowIndex] = node;
                           if (copyIndex === 1) secondCopyRefs.current[rowIndex] = node;
                         }}
-                        className="flex gap-3"
+                        className="flex gap-2.5 sm:gap-3"
                       >
                         {row.items.map((item, index) => {
                           const selected = isActive && selectedSkill === item;
@@ -336,7 +330,7 @@ export function SkillsSection() {
                                 event.stopPropagation();
                                 activateRow(rowIndex, item);
                               }}
-                              className={`whitespace-nowrap rounded-full border px-4 py-2.5 text-sm transition-all ${
+                              className={`whitespace-nowrap rounded-full border px-3 py-2 text-[13px] transition-all sm:px-4 sm:py-2.5 sm:text-sm ${
                                 selected
                                   ? "scale-110 border-sky-400/30 bg-sky-400/15 text-sky-100 shadow-[0_0_0_1px_rgba(96,165,250,0.25)]"
                                   : "border-white/10 bg-white/[0.03] text-white/75 hover:bg-white/[0.07]"
