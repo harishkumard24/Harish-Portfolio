@@ -19,7 +19,7 @@ export function AboutSection() {
     <section id="about" className="py-24 sm:py-28">
       <div className="mb-10 space-y-3">
         <p className="text-[11px] uppercase tracking-[0.38em] text-white/45">About</p>
-        <h2 className="max-w-4xl bg-gradient-to-r from-sky-400 to-white bg-clip-text font-serif not-italic font-semibold text-4xl  tracking-tight text-transparent sm:text-5xl lg:text-6xl">
+        <h2 className="max-w-4xl bg-gradient-to-r from-sky-400 to-white bg-clip-text font-serif not-italic font-bold text-4xl  tracking-tight text-transparent sm:text-5xl lg:text-6xl">
           Engineering depth. Product instinct. Calm execution.
         </h2>
         <p className="max-w-3xl text-base leading-8 text-white/65 sm:text-lg">

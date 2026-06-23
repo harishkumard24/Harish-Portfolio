@@ -8,11 +8,19 @@ import { Button } from "@/components/ui/button";
 import { Spotlight } from "@/components/ui/spotlight";
 import { SplineScene } from "@/components/ui/splite";
 
-const roles = ["Software Engineer"] as const;
+const roles = ["Software Engineer", "Backend Engineer", "GenAI Engineer"] as const;
 
 export function HeroSection() {
   const [roleIndex, setRoleIndex] = useState(0);
   const sectionRef = useRef<HTMLElement>(null);
+
+    useEffect(() => {
+    const interval = setInterval(() => {
+      setRoleIndex((prev) => (prev + 1) % roles.length);
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   
 
