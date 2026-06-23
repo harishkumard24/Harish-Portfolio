@@ -38,11 +38,15 @@ export function ProjectsSection() {
     touchStartY.current = e.touches[0].clientY;
     touchEndX.current = touchStartX.current;
     touchEndY.current = touchStartY.current;
+    // NOTE: do NOT call e.stopPropagation() or e.preventDefault() here.
+    // The global window touchmove listener (for robot tracking) must still fire.
   };
 
   const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => {
     touchEndX.current = e.touches[0].clientX;
     touchEndY.current = e.touches[0].clientY;
+    // NOTE: do NOT call e.preventDefault() here — that would swallow the event
+    // before window's touchmove listener (robot eye tracking) can read it.
   };
 
   const handleTouchEnd = () => {
@@ -66,7 +70,7 @@ export function ProjectsSection() {
       <div className="mb-8 space-y-3 sm:mb-10">
         <p className="text-[11px] uppercase tracking-[0.38em] text-white/45">Technical Projects</p>
         <h2 className="max-w-4xl bg-gradient-to-r from-sky-400 to-white bg-clip-text font-serif font-bold not-italic text-3xl tracking-tight text-transparent sm:text-5xl lg:text-6xl">
-          Products I’ve built.
+          Products I've built.
         </h2>
         <p className="max-w-3xl text-sm leading-7 text-white/65 sm:text-base sm:leading-8 lg:text-lg">
           A centered carousel with one active card in front, two readable side cards on each side, and a soft circular frame in the background.
@@ -79,7 +83,14 @@ export function ProjectsSection() {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         className="relative overflow-hidden rounded-[34px] border border-white/8 bg-white/[0.015] px-3 py-8 shadow-[0_24px_80px_rgba(0,0,0,0.38)] backdrop-blur-xl sm:px-6 lg:px-12"
-        style={{ perspective: "2200px", touchAction: "pan-y" }}
+        style={{
+          perspective: "2200px",
+          // pan-y lets vertical scroll pass through naturally.
+          // We do NOT use pan-x here because that would tell the browser to
+          // consume horizontal touch events itself, preventing window's
+          // touchmove from firing for the robot tracker.
+          touchAction: "pan-y",
+        }}
       >
         <div className="pointer-events-none absolute inset-[10%_14%] rounded-full border border-white/5" />
         <div className="pointer-events-none absolute inset-[18%_22%] rounded-full border border-dashed border-white/5" />
@@ -88,6 +99,7 @@ export function ProjectsSection() {
           type="button"
           onClick={prev}
           className="absolute left-1 top-1/2 z-20 -translate-y-1/2 text-4xl font-light text-white/55 transition hover:text-sky-400 sm:left-3 sm:text-6xl"
+          style={{ touchAction: "manipulation" }}
           aria-label="Previous project"
         >
           &lt;
@@ -96,6 +108,7 @@ export function ProjectsSection() {
           type="button"
           onClick={next}
           className="absolute right-1 top-1/2 z-20 -translate-y-1/2 text-4xl font-light text-white/55 transition hover:text-sky-400 sm:right-3 sm:text-6xl"
+          style={{ touchAction: "manipulation" }}
           aria-label="Next project"
         >
           &gt;

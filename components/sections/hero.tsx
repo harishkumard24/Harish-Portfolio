@@ -1,7 +1,10 @@
-/* Hero section with the robot scene floating freely on the right. */
+/* Hero section with the robot scene floating freely on the right.
+   Touch devices: robot looks toward wherever the user touches/moves finger.
+   Pointer devices: robot follows cursor as before.
+*/
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Code2, Github, Linkedin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,60 +18,84 @@ export function HeroSection() {
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
 
+  // ─── Device + Viewport detection ──────────────────────────────────────────
   useEffect(() => {
     const updateDeviceState = () => {
       const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
       const noHover = window.matchMedia("(hover: none)").matches;
       setIsTouchDevice(coarsePointer || noHover);
-      setViewport({
-        width: window.innerWidth,
-        height: window.innerHeight,
-      });
+      setViewport({ width: window.innerWidth, height: window.innerHeight });
     };
 
     updateDeviceState();
     window.addEventListener("resize", updateDeviceState);
-
-    return () => {
-      window.removeEventListener("resize", updateDeviceState);
-    };
+    return () => window.removeEventListener("resize", updateDeviceState);
   }, []);
 
+  // ─── Role cycling ──────────────────────────────────────────────────────────
   useEffect(() => {
     const interval = window.setInterval(() => {
       setRoleIndex((prev) => (prev + 1) % roles.length);
     }, 2000);
-
     return () => window.clearInterval(interval);
   }, []);
 
+  // ─── Pointer / Touch tracking ──────────────────────────────────────────────
+  // We track both pointermove (desktop) and touchmove (mobile).
+  // CSS custom properties --hero-mx and --hero-my are normalised to [-0.5, 0.5].
   useEffect(() => {
-    const handlePointerMove = (event: PointerEvent) => {
-      const x = event.clientX / window.innerWidth - 0.5;
-      const y = event.clientY / window.innerHeight - 0.5;
-
-      document.documentElement.style.setProperty("--hero-mx", x.toFixed(4));
-      document.documentElement.style.setProperty("--hero-my", y.toFixed(4));
+    const setVars = (mx: number, my: number) => {
+      document.documentElement.style.setProperty("--hero-mx", mx.toFixed(4));
+      document.documentElement.style.setProperty("--hero-my", my.toFixed(4));
     };
 
-    const resetPointer = () => {
-      document.documentElement.style.setProperty("--hero-mx", "0");
-      document.documentElement.style.setProperty("--hero-my", "0");
+    const resetVars = () => setVars(0, 0);
+
+    // Pointer (mouse / stylus) – desktop
+    const handlePointerMove = (e: PointerEvent) => {
+      if (e.pointerType === "mouse") {
+        setVars(
+          e.clientX / window.innerWidth - 0.5,
+          e.clientY / window.innerHeight - 0.5
+        );
+      }
     };
+
+    // Touch – phones & tablets
+    const handleTouchMove = (e: TouchEvent) => {
+      // Use the first active touch point
+      const touch = e.touches[0];
+      if (!touch) return;
+      setVars(
+        touch.clientX / window.innerWidth - 0.5,
+        touch.clientY / window.innerHeight - 0.5
+      );
+    };
+
+    const handleTouchEnd = () => resetVars();
 
     window.addEventListener("pointermove", handlePointerMove, { passive: true });
-    window.addEventListener("pointerleave", resetPointer);
-    window.addEventListener("pointerup", resetPointer);
-    window.addEventListener("pointercancel", resetPointer);
+    window.addEventListener("pointerleave", resetVars);
+    window.addEventListener("pointerup", resetVars);
+    window.addEventListener("pointercancel", resetVars);
+
+    // These are the key additions for mobile
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
+    window.addEventListener("touchend", handleTouchEnd, { passive: true });
+    window.addEventListener("touchcancel", handleTouchEnd, { passive: true });
 
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerleave", resetPointer);
-      window.removeEventListener("pointerup", resetPointer);
-      window.removeEventListener("pointercancel", resetPointer);
+      window.removeEventListener("pointerleave", resetVars);
+      window.removeEventListener("pointerup", resetVars);
+      window.removeEventListener("pointercancel", resetVars);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
+      window.removeEventListener("touchcancel", handleTouchEnd);
     };
   }, []);
 
+  // ─── Robot transform ───────────────────────────────────────────────────────
   const isSmallScreen = viewport.width > 0 && viewport.width < 640;
   const isTablet = viewport.width >= 640 && viewport.width < 1024;
 
@@ -76,10 +103,13 @@ export function HeroSection() {
   const robotDrop = isSmallScreen ? 18 : isTablet ? 10 : 0;
   const robotShiftX = isSmallScreen ? 0 : 14;
 
+  // Touch devices get stronger multipliers so the look-direction feels responsive
+  // (they previously used weaker values, which made the robot barely react).
   const robotTransform = isTouchDevice
-    ? `translate3d(calc(var(--hero-mx, 0) * 10px + ${robotShiftX}px), calc(var(--hero-my, 0) * 8px + ${robotDrop}px), 0) rotateY(calc(var(--hero-mx, 0) * 4deg)) rotateX(calc(var(--hero-my, 0) * -2deg)) scale(${robotScale})`
+    ? `translate3d(calc(var(--hero-mx, 0) * 28px + ${robotShiftX}px), calc(var(--hero-my, 0) * 22px + ${robotDrop}px), 0) rotateY(calc(var(--hero-mx, 0) * 16deg)) rotateX(calc(var(--hero-my, 0) * -10deg)) scale(${robotScale})`
     : `translate3d(calc(var(--hero-mx, 0) * 24px + ${robotShiftX}px), calc(var(--hero-my, 0) * 16px + ${robotDrop}px), 0) rotateY(calc(var(--hero-mx, 0) * 10deg)) rotateX(calc(var(--hero-my, 0) * -8deg)) scale(${robotScale})`;
 
+  // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <section
       id="home"
@@ -90,6 +120,8 @@ export function HeroSection() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_18%,rgba(96,165,250,0.12),transparent_24%),radial-gradient(circle_at_84%_18%,rgba(255,255,255,0.05),transparent_18%),linear-gradient(180deg,rgba(0,0,0,0.06),rgba(0,0,0,0.34)_35%,rgba(0,0,0,0.82)_100%)]" />
 
       <div className="mx-auto grid min-h-[calc(100vh-7rem)] w-full max-w-[1440px] grid-cols-1 items-center gap-8 px-4 sm:px-6 lg:grid-cols-[1.03fr_0.97fr] lg:gap-10 lg:px-8">
+
+        {/* ── Left: text content ── */}
         <motion.div
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
@@ -158,27 +190,27 @@ export function HeroSection() {
           </div>
         </motion.div>
 
+        {/* ── Right: robot scene ── */}
         <div className="relative min-h-[320px] sm:min-h-[440px] lg:min-h-[calc(100vh-8rem)] overflow-visible">
-          <div className="pointer-events-none absolute inset-y-[12%] right-[-2%] left-[8%] rounded-full bg-[radial-gradient(circle_at_50%_40%,rgba(96,165,250,0.24),transparent_45%),radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.08),transparent_55%)] blur-3xl" />
-
+          <div className="pointer-events-none absolute inset-y-[12%] right-[-2%] left-[8%] rounded-full bg-[radial-gradient(circle_at_50%_40%,rgba(96,165,250,0.01),transparent_45%),radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.01),transparent_55%)] blur-3xl" />
           <div
             className="hero-robot absolute inset-0 z-20 flex items-center justify-center lg:justify-end"
             style={{
               transform: robotTransform,
               transformOrigin: "center center",
-              transition: "transform 180ms ease-out",
+              // Slightly longer ease on touch so the motion feels smooth, not jittery
+              transition: "transform 220ms ease-out",
               touchAction: "pan-y",
             }}
           >
-            <div className="relative h-[clamp(320px,64vw,520px)] w-full max-w-[760px] overflow-visible sm:h-[clamp(400px,56vw,620px)] lg:h-[78vh]">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(96,165,250,0.05),transparent_45%),linear-gradient(180deg,transparent,rgba(0,0,0,0.08))]" />
-              <SplineScene
-                scene="https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode"
-                className="h-full w-full overflow-visible scale-[0.94] sm:scale-100 lg:scale-[1.02]"
-              />
-            </div>
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(96,165,250,0.01),transparent_45%),linear-gradient(180deg,transparent,rgba(0,0,0,0.02))]" />
+            <SplineScene
+              scene="https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode"
+              className="h-full w-full overflow-visible scale-[0.94] sm:scale-100 lg:scale-[1.02]"
+            />
           </div>
         </div>
+
       </div>
     </section>
   );
