@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Code2, Github, Linkedin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,10 @@ export function HeroSection() {
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   
-  // Track mouse/touch position directly in state
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  // Refs for direct DOM manipulation (super smooth)
+  const robotRef = useRef<HTMLDivElement>(null);
+  const posRef = useRef({ x: 0, y: 0 });
+  const isTrackingRef = useRef(false);
 
   // ─── Device + Viewport detection ──────────────────────────────────────────
   useEffect(() => {
@@ -39,80 +41,142 @@ export function HeroSection() {
     return () => window.clearInterval(interval);
   }, []);
 
-  // ─── Pointer / Touch tracking - DIRECT STATE UPDATE ──────────────────────
+  // ─── Direct DOM manipulation for ultra-smooth tracking ──────────────────────
   useEffect(() => {
-    // Desktop mouse tracking
+    const calculatePos = (clientX: number, clientY: number) => {
+      const vw = window.visualViewport?.width || window.innerWidth;
+      const vh = window.visualViewport?.height || window.innerHeight;
+      
+      const x = (clientX / vw) - 0.5;
+      const y = (clientY / vh) - 0.5;
+      
+      posRef.current.x = Math.max(-0.5, Math.min(0.5, x));
+      posRef.current.y = Math.max(-0.5, Math.min(0.5, y));
+    };
+
+    const updateRobotTransform = () => {
+      if (!robotRef.current) return;
+      
+      const isSmallScreen = viewport.width > 0 && viewport.width < 640;
+      const isTablet = viewport.width >= 640 && viewport.width < 1024;
+
+      const robotScale = isSmallScreen ? 0.84 : isTablet ? 0.92 : 1;
+      const robotDrop = isSmallScreen ? 18 : isTablet ? 10 : 0;
+      const robotShiftX = isSmallScreen ? 0 : 14;
+
+      const mx = posRef.current.x;
+      const my = posRef.current.y;
+
+      let transform: string;
+      
+      if (isTouchDevice) {
+        const translateX = mx * 50 + robotShiftX;
+        const translateY = my * 40 + robotDrop;
+        const rotateY = mx * 32;
+        const rotateX = my * -24;
+        transform = `translate3d(${translateX}px, ${translateY}px, 0) rotateY(${rotateY}deg) rotateX(${rotateX}deg) scale(${robotScale})`;
+      } else {
+        const translateX = mx * 24 + robotShiftX;
+        const translateY = my * 16 + robotDrop;
+        const rotateY = mx * 10;
+        const rotateX = my * -8;
+        transform = `translate3d(${translateX}px, ${translateY}px, 0) rotateY(${rotateY}deg) rotateX(${rotateX}deg) scale(${robotScale})`;
+      }
+
+      robotRef.current.style.transform = transform;
+    };
+
+    // ========== MOUSE EVENTS (Desktop) ==========
     const handleMouseMove = (e: MouseEvent) => {
-      const mx = (e.clientX / window.innerWidth) - 0.5;
-      const my = (e.clientY / window.innerHeight) - 0.5;
-      setMousePos({ x: mx, y: my });
+      calculatePos(e.clientX, e.clientY);
+      isTrackingRef.current = true;
+      updateRobotTransform();
     };
 
     const handleMouseLeave = () => {
-      setMousePos({ x: 0, y: 0 });
+      isTrackingRef.current = false;
+      posRef.current = { x: 0, y: 0 };
+      if (robotRef.current) {
+        robotRef.current.style.transform = isTouchDevice
+          ? `translate3d(0px, ${viewport.width < 640 ? 18 : viewport.width < 1024 ? 10 : 0}px, 0) scale(${viewport.width < 640 ? 0.84 : viewport.width < 1024 ? 0.92 : 1})`
+          : `translate3d(14px, 0px, 0) scale(1)`;
+      }
     };
 
-    // Mobile touch tracking
+    // ========== TOUCH EVENTS (Mobile) ==========
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches[0]) {
+        isTrackingRef.current = true;
+      }
+    };
+
     const handleTouchMove = (e: TouchEvent) => {
-      if (!e.touches[0]) return;
+      if (!isTrackingRef.current || !e.touches[0]) return;
       const touch = e.touches[0];
-      const mx = (touch.clientX / window.innerWidth) - 0.5;
-      const my = (touch.clientY / window.innerHeight) - 0.5;
-      setMousePos({ x: mx, y: my });
+      calculatePos(touch.clientX, touch.clientY);
+      updateRobotTransform();
     };
 
     const handleTouchEnd = () => {
-      setMousePos({ x: 0, y: 0 });
+      isTrackingRef.current = false;
+      posRef.current = { x: 0, y: 0 };
+      if (robotRef.current) {
+        robotRef.current.style.transform = isTouchDevice
+          ? `translate3d(0px, ${viewport.width < 640 ? 18 : viewport.width < 1024 ? 10 : 0}px, 0) scale(${viewport.width < 640 ? 0.84 : viewport.width < 1024 ? 0.92 : 1})`
+          : `translate3d(14px, 0px, 0) scale(1)`;
+      }
     };
 
-    // Register listeners
+    // ========== POINTER EVENTS (Chrome/Firefox) ==========
+    const handlePointerDown = (e: PointerEvent) => {
+      if (e.pointerType === "touch" || e.pointerType === "pen" || e.pointerType === "mouse") {
+        isTrackingRef.current = true;
+      }
+    };
+
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!isTrackingRef.current) return;
+      calculatePos(e.clientX, e.clientY);
+      updateRobotTransform();
+    };
+
+    const handlePointerUp = () => {
+      isTrackingRef.current = false;
+      posRef.current = { x: 0, y: 0 };
+      if (robotRef.current) {
+        robotRef.current.style.transform = isTouchDevice
+          ? `translate3d(0px, ${viewport.width < 640 ? 18 : viewport.width < 1024 ? 10 : 0}px, 0) scale(${viewport.width < 640 ? 0.84 : viewport.width < 1024 ? 0.92 : 1})`
+          : `translate3d(14px, 0px, 0) scale(1)`;
+      }
+    };
+
+    // ========== REGISTER EVENTS ==========
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
-    window.addEventListener("mouseleave", handleMouseLeave);
-    window.addEventListener("touchmove", handleTouchMove, { passive: true });
-    window.addEventListener("touchend", handleTouchEnd, { passive: true });
-    window.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+    window.addEventListener("mouseleave", handleMouseLeave, { passive: true });
+    
+    document.addEventListener("touchstart", handleTouchStart, { passive: true });
+    document.addEventListener("touchmove", handleTouchMove, { passive: true });
+    document.addEventListener("touchend", handleTouchEnd, { passive: true });
+    document.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+    
+    document.addEventListener("pointerdown", handlePointerDown, { passive: true });
+    document.addEventListener("pointermove", handlePointerMove, { passive: true });
+    document.addEventListener("pointerup", handlePointerUp, { passive: true });
+    document.addEventListener("pointercancel", handlePointerUp, { passive: true });
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseleave", handleMouseLeave);
-      window.removeEventListener("touchmove", handleTouchMove);
-      window.removeEventListener("touchend", handleTouchEnd);
-      window.removeEventListener("touchcancel", handleTouchEnd);
+      document.removeEventListener("touchstart", handleTouchStart);
+      document.removeEventListener("touchmove", handleTouchMove);
+      document.removeEventListener("touchend", handleTouchEnd);
+      document.removeEventListener("touchcancel", handleTouchEnd);
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
+      document.removeEventListener("pointercancel", handlePointerUp);
     };
-  }, []);
-
-  // ─── Robot transform ───────────────────────────────────────────────────────
-  const isSmallScreen = viewport.width > 0 && viewport.width < 640;
-  const isTablet = viewport.width >= 640 && viewport.width < 1024;
-
-  const robotScale = isSmallScreen ? 0.84 : isTablet ? 0.92 : 1;
-  const robotDrop = isSmallScreen ? 18 : isTablet ? 10 : 0;
-  const robotShiftX = isSmallScreen ? 0 : 14;
-
-  // Calculate transform values based on mouse position
-  const mx = mousePos.x;
-  const my = mousePos.y;
-
-  // Different multipliers for touch vs desktop
-  const getTransform = () => {
-    if (isTouchDevice) {
-      // STRONG multipliers for mobile touch
-      const translateX = mx * 45 + robotShiftX;
-      const translateY = my * 35 + robotDrop;
-      const rotateY = mx * 28;
-      const rotateX = my * -20;
-      
-      return `translate3d(${translateX}px, ${translateY}px, 0) rotateY(${rotateY}deg) rotateX(${rotateX}deg) scale(${robotScale})`;
-    } else {
-      // Subtle multipliers for desktop
-      const translateX = mx * 24 + robotShiftX;
-      const translateY = my * 16 + robotDrop;
-      const rotateY = mx * 10;
-      const rotateX = my * -8;
-      
-      return `translate3d(${translateX}px, ${translateY}px, 0) rotateY(${rotateY}deg) rotateX(${rotateX}deg) scale(${robotScale})`;
-    }
-  };
+  }, [viewport.width, isTouchDevice]);
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
@@ -199,12 +263,10 @@ export function HeroSection() {
         <div className="relative min-h-[320px] sm:min-h-[440px] lg:min-h-[calc(100vh-8rem)] overflow-visible">
           <div className="pointer-events-none absolute inset-y-[12%] right-[-2%] left-[8%] rounded-full bg-[radial-gradient(circle_at_50%_40%,rgba(96,165,250,0.01),transparent_45%),radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.01),transparent_55%)] blur-3xl" />
           <div
+            ref={robotRef}
             className="hero-robot absolute inset-0 z-20 flex items-center justify-center lg:justify-end"
             style={{
-              transform: getTransform(),
               transformOrigin: "center center",
-              transition: "transform 120ms ease-out",
-              touchAction: "none",
               willChange: "transform",
             }}
           >
