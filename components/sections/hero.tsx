@@ -1,10 +1,6 @@
-/* Hero section with the robot scene floating freely on the right.
-   Touch devices: robot looks toward wherever the user touches/moves finger.
-   Pointer devices: robot follows cursor as before.
-*/
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Code2, Github, Linkedin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +13,9 @@ export function HeroSection() {
   const [roleIndex, setRoleIndex] = useState(0);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
+  
+  // Track mouse/touch position directly in state
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   // ─── Device + Viewport detection ──────────────────────────────────────────
   useEffect(() => {
@@ -40,55 +39,42 @@ export function HeroSection() {
     return () => window.clearInterval(interval);
   }, []);
 
-  // ─── Pointer / Touch tracking ──────────────────────────────────────────────
-  // We track both pointermove (desktop) and touchmove (mobile).
-  // CSS custom properties --hero-mx and --hero-my are normalised to [-0.5, 0.5].
+  // ─── Pointer / Touch tracking - DIRECT STATE UPDATE ──────────────────────
   useEffect(() => {
-    const setVars = (mx: number, my: number) => {
-      document.documentElement.style.setProperty("--hero-mx", mx.toFixed(4));
-      document.documentElement.style.setProperty("--hero-my", my.toFixed(4));
+    // Desktop mouse tracking
+    const handleMouseMove = (e: MouseEvent) => {
+      const mx = (e.clientX / window.innerWidth) - 0.5;
+      const my = (e.clientY / window.innerHeight) - 0.5;
+      setMousePos({ x: mx, y: my });
     };
 
-    const resetVars = () => setVars(0, 0);
-
-    // Pointer (mouse / stylus) – desktop
-    const handlePointerMove = (e: PointerEvent) => {
-      if (e.pointerType === "mouse") {
-        setVars(
-          e.clientX / window.innerWidth - 0.5,
-          e.clientY / window.innerHeight - 0.5
-        );
-      }
+    const handleMouseLeave = () => {
+      setMousePos({ x: 0, y: 0 });
     };
 
-    // Touch – phones & tablets
+    // Mobile touch tracking
     const handleTouchMove = (e: TouchEvent) => {
-      // Use the first active touch point
+      if (!e.touches[0]) return;
       const touch = e.touches[0];
-      if (!touch) return;
-      setVars(
-        touch.clientX / window.innerWidth - 0.5,
-        touch.clientY / window.innerHeight - 0.5
-      );
+      const mx = (touch.clientX / window.innerWidth) - 0.5;
+      const my = (touch.clientY / window.innerHeight) - 0.5;
+      setMousePos({ x: mx, y: my });
     };
 
-    const handleTouchEnd = () => resetVars();
+    const handleTouchEnd = () => {
+      setMousePos({ x: 0, y: 0 });
+    };
 
-    window.addEventListener("pointermove", handlePointerMove, { passive: true });
-    window.addEventListener("pointerleave", resetVars);
-    window.addEventListener("pointerup", resetVars);
-    window.addEventListener("pointercancel", resetVars);
-
-    // These are the key additions for mobile
+    // Register listeners
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    window.addEventListener("mouseleave", handleMouseLeave);
     window.addEventListener("touchmove", handleTouchMove, { passive: true });
     window.addEventListener("touchend", handleTouchEnd, { passive: true });
     window.addEventListener("touchcancel", handleTouchEnd, { passive: true });
 
     return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerleave", resetVars);
-      window.removeEventListener("pointerup", resetVars);
-      window.removeEventListener("pointercancel", resetVars);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseleave", handleMouseLeave);
       window.removeEventListener("touchmove", handleTouchMove);
       window.removeEventListener("touchend", handleTouchEnd);
       window.removeEventListener("touchcancel", handleTouchEnd);
@@ -103,11 +89,30 @@ export function HeroSection() {
   const robotDrop = isSmallScreen ? 18 : isTablet ? 10 : 0;
   const robotShiftX = isSmallScreen ? 0 : 14;
 
-  // Touch devices get stronger multipliers so the look-direction feels responsive
-  // (they previously used weaker values, which made the robot barely react).
-  const robotTransform = isTouchDevice
-    ? `translate3d(calc(var(--hero-mx, 0) * 28px + ${robotShiftX}px), calc(var(--hero-my, 0) * 22px + ${robotDrop}px), 0) rotateY(calc(var(--hero-mx, 0) * 16deg)) rotateX(calc(var(--hero-my, 0) * -10deg)) scale(${robotScale})`
-    : `translate3d(calc(var(--hero-mx, 0) * 24px + ${robotShiftX}px), calc(var(--hero-my, 0) * 16px + ${robotDrop}px), 0) rotateY(calc(var(--hero-mx, 0) * 10deg)) rotateX(calc(var(--hero-my, 0) * -8deg)) scale(${robotScale})`;
+  // Calculate transform values based on mouse position
+  const mx = mousePos.x;
+  const my = mousePos.y;
+
+  // Different multipliers for touch vs desktop
+  const getTransform = () => {
+    if (isTouchDevice) {
+      // STRONG multipliers for mobile touch
+      const translateX = mx * 45 + robotShiftX;
+      const translateY = my * 35 + robotDrop;
+      const rotateY = mx * 28;
+      const rotateX = my * -20;
+      
+      return `translate3d(${translateX}px, ${translateY}px, 0) rotateY(${rotateY}deg) rotateX(${rotateX}deg) scale(${robotScale})`;
+    } else {
+      // Subtle multipliers for desktop
+      const translateX = mx * 24 + robotShiftX;
+      const translateY = my * 16 + robotDrop;
+      const rotateY = mx * 10;
+      const rotateX = my * -8;
+      
+      return `translate3d(${translateX}px, ${translateY}px, 0) rotateY(${rotateY}deg) rotateX(${rotateX}deg) scale(${robotScale})`;
+    }
+  };
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
@@ -196,11 +201,11 @@ export function HeroSection() {
           <div
             className="hero-robot absolute inset-0 z-20 flex items-center justify-center lg:justify-end"
             style={{
-              transform: robotTransform,
+              transform: getTransform(),
               transformOrigin: "center center",
-              // Slightly longer ease on touch so the motion feels smooth, not jittery
-              transition: "transform 220ms ease-out",
-              touchAction: "pan-y",
+              transition: "transform 120ms ease-out",
+              touchAction: "none",
+              willChange: "transform",
             }}
           >
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(96,165,250,0.01),transparent_45%),linear-gradient(180deg,transparent,rgba(0,0,0,0.02))]" />
